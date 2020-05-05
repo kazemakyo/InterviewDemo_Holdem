@@ -105,7 +105,7 @@ public class GameMain : MonoBehaviour {
 	}
 
 	public Text TextComparerStatus ;
-	// Card Set Comparer
+	// Card Set Compare
 	void ShowDown () {
 
 		Player01.GetBestCardCombination ( CommunityCardPool.ToArray () );
