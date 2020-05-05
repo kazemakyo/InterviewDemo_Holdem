@@ -72,6 +72,8 @@ public class CardCombinationData {
 public class CPlayer : MonoBehaviour {
 
 	const int ACE_value = 14;
+	const int MaxHandCardCount  = 5 ;
+
 	public List<CCardData> HandCards ;
 	public List<CCardData> CurrentBestCardList ;
 	public CardCombinationData CurrentBestCardCombination;
@@ -126,6 +128,15 @@ public class CPlayer : MonoBehaviour {
 		return sources;
 	}
 
+	List<CCardData> setTestValue ( List<CCardData> sources , List<int> testData ) {
+		int index = 0;
+		foreach (CCardData data in sources) {
+			data.Value = testData [index];
+			++index;
+		}
+		return sources;
+	}
+
 	// 7 pick 5 , Main Algorithm
 	public CardCombinationData GetBestCardCombination ( CCardData [] sources ) {
 
@@ -142,13 +153,11 @@ public class CPlayer : MonoBehaviour {
 		newSet = SortList ( false , newSet ) ;
 
 		// run best pattern match algorithm
-		int pairCount = 0;
 		bool isFlush = false;
 		bool isStraight = false;
 		bool isFourOfaKind = false;
 
 		bool isAceLead = false;
-		bool hasThreeOfaKind = false;
 
 		// Check first card is ACE or not
 		isAceLead = newSet [ 0 ].Value == ACE_value ;
@@ -158,11 +167,6 @@ public class CPlayer : MonoBehaviour {
 		int continuousCounter = 0;
 		int startIndex_continuous = 0;
 		bool hasStartIndex_continuous = false;
-
-		int maxEqualCount = 0;
-		int equalCounter = 0;
-		int startIndex_equal = 0;
-		bool hasStartIndex_equal = false;
 
 		int [] subValueArray = new int [ newSet.Count - 1 ] ;
 
@@ -174,112 +178,62 @@ public class CPlayer : MonoBehaviour {
 				
 				continuousCounter++;
 
-				// save max counter
-				if ( continuousCounter > maxContinuousCount )
-					maxContinuousCount = continuousCounter;
-
 				if (hasStartIndex_continuous == false) {
-					startIndex_continuous = i;
-					hasStartIndex_continuous = true;
+					if (continuousCounter >= maxContinuousCount) {
+						startIndex_continuous = i;
+						hasStartIndex_continuous = true;
+					}
 				}
+
 			} else {
-
-				// save max counter
-				if ( continuousCounter > maxContinuousCount )
-					maxContinuousCount = continuousCounter;
-
 				continuousCounter = 0;
-				hasStartIndex_continuous = false ;
+				hasStartIndex_continuous = false;
 			}
 
-			// check max the same card count
-			if (subValueArray [i] > 0) {
-				
-				// save max counter
-				if (equalCounter > maxEqualCount) {
-					maxEqualCount = equalCounter;
-					hasStartIndex_equal = false;
-				}
-				
-				equalCounter = 0;
-
-			} else {
-				// subValue == 0 ( no conditions in < 0 after sort )
-
-				equalCounter++;
-
-				if (equalCounter > maxEqualCount) {
-					maxEqualCount = equalCounter;
-					hasStartIndex_equal = false;
-				}
-
-				if (hasStartIndex_equal == false) {
-					startIndex_equal = i;
-					hasStartIndex_equal = true;
-				}
+			// save max counter
+			if (continuousCounter > maxContinuousCount) {
+				maxContinuousCount = continuousCounter;
 			}
 
 		}
 
+		if (maxContinuousCount >= 4)
+ 			isStraight = true;
 
-		if (maxContinuousCount > 4)
-			isStraight = true;
+		// the same card special cehck method
+		int [] valueCounter = new int[16] ;
+		foreach (CCardData card in newSet) {
+			valueCounter [card.Value]++;
+		}
 
-		// Four of a kind check
-		if (maxEqualCount == 3)
-			isFourOfaKind = true;
+		// check each value counter
+		// check Four of a Kind , Three of a kind , and pair count
+		int valueIndex = 0 ;
+		int arrayIndex = -1;
+		int fourOfaKindIndex = 0;
+		List<int> ThreeOfaKindIndexList = new List<int> ();
+		List<int> PairIndexList = new List<int> ();
 
-		// Three of a kind check
-		if (maxEqualCount == 2)
-			hasThreeOfaKind = true;
+		List<int> newSetValueList = new List<int> ();
+		foreach (CCardData card in newSet)
+			newSetValueList.Add (card.Value);
 
-		// is pair pattern
-		int startIndex_pair1 = -1;
-		int startIndex_pair2 = -1;
-		if (maxEqualCount == 1) {
-			
-			// three pair
-			// x 0 x 0 x 0 
-			// 0 x 0 x 0 x 
-
-			// two pair
-			// 0 x 0 x x x
-			// 0 x x 0 x x
-			// 0 x x x 0 x
-			// 0 x x x x 0
-
-			// x 0 x x x 0
-			// x 0 x x 0 x 
-			// x 0 x 0 x x 
-
-			// x x 0 x x 0
-			// x x 0 x 0 x
-
-			// x x x 0 x 0
-
-			// one pair
-			// 0 x x x x x
-			// x 0 x x x x
-			// x x 0 x x x
-			// x x x 0 x x
-			// x x x x 0 x
-			// x x x x x 0
-
-			// check pair count
-			for (int i = 0; i < subValueArray.Length; i++) {
-				if (subValueArray [i] == 0) {
-					
-					pairCount++;
-
-					if (pairCount == 1)
-						startIndex_pair1 = i;
-					
-					if (pairCount == 2)
-						startIndex_pair2 = i;
-					
-				}
+		foreach ( int count in valueCounter ) {
+			if (count == 4) {
+				isFourOfaKind = true;
+				arrayIndex = newSetValueList.IndexOf (valueIndex);
+				fourOfaKindIndex = arrayIndex;
 			}
 			
+			if ( count == 3 ) {
+				arrayIndex = newSetValueList.IndexOf (valueIndex);
+				ThreeOfaKindIndexList.Add (arrayIndex);
+			}
+			if ( count == 2 ) {
+				arrayIndex = newSetValueList.IndexOf (valueIndex);
+				PairIndexList.Add (arrayIndex);
+			}
+			valueIndex++;
 		}
 
 		// Flush Check
@@ -301,13 +255,13 @@ public class CPlayer : MonoBehaviour {
 				cludCount++;
 		}
 
-		if (spadeCount >= 5)
+		if (spadeCount >= MaxHandCardCount )
 			flushType = CardType.Spade;
-		if (heartCount >= 5)
+		if (heartCount >= MaxHandCardCount)
 			flushType = CardType.Heart;
-		if (diamondCount >= 5)
+		if (diamondCount >= MaxHandCardCount)
 			flushType = CardType.Diamond;
-		if (cludCount >= 5)
+		if (cludCount >= MaxHandCardCount)
 			flushType = CardType.Club;
 
 		if ( flushType != CardType.Undefine )
@@ -315,20 +269,19 @@ public class CPlayer : MonoBehaviour {
 
 		// -------------------------------------------------------------------------------------
 
-
-		// otherwise is High Card (Zitch)
+		// default set as High Card (Zitch)
 		result.type = E_CardCombinationType.HighCard ;
 
 		// one pair check
-		if (pairCount == 1)
+		if (PairIndexList.Count == 1)
 			result.type = E_CardCombinationType.OnePair;
 		
 		// two pair check
-		if (pairCount == 2)
+		if (PairIndexList.Count >= 2)
 			result.type = E_CardCombinationType.TwoPair;
 
 		// three of kind check
-		if (hasThreeOfaKind)
+		if (ThreeOfaKindIndexList.Count == 1)
 			result.type = E_CardCombinationType.ThreeOfAKind;
 		
 		// Straight check
@@ -339,8 +292,11 @@ public class CPlayer : MonoBehaviour {
 		if (isFlush)
 			result.type = E_CardCombinationType.Flush;
 
-		// Full house check
-		if (hasThreeOfaKind && pairCount >= 1)
+		// Full house check , situation 1
+		if ( ThreeOfaKindIndexList.Count == 2 )
+			result.type = E_CardCombinationType.FullHouse;
+		// Full house check , situation 2
+		if (ThreeOfaKindIndexList.Count == 1 && PairIndexList.Count >= 1)
 			result.type = E_CardCombinationType.FullHouse;
 
 		// Four of a kind check
@@ -357,11 +313,20 @@ public class CPlayer : MonoBehaviour {
 		}
 		
 		// pick card
-		const int MaxHandCardCount  = 5 ;
 		CCardData[] pickedCardValue = new CCardData [ MaxHandCardCount ] ;
 
 		List<CCardData> pickedCardList = new List<CCardData> ();
 		Queue<CCardData> valueSetQueue = new Queue<CCardData>() ;
+
+		// need reverse once , for the right order of the pair ( small -> big => big -> small )
+		PairIndexList.Reverse ();
+
+		// very low chance to get two ThreeOfaKind set , still need Reverse
+		if (ThreeOfaKindIndexList.Count >= 2)
+			ThreeOfaKindIndexList.Reverse ();
+
+		int pair1Index = -1;
+		int pair2Index = -1;
 
 		switch (result.type) {
 		case E_CardCombinationType.RoyalStraigthFlush:
@@ -370,30 +335,36 @@ public class CPlayer : MonoBehaviour {
 			for ( int i = startIndex_continuous ; i < startIndex_continuous + MaxHandCardCount ; ++i )
 				pickedCardValue [ i - startIndex_continuous ] = newSet [i];
 			break;
-		case E_CardCombinationType.FourOfaKind:
-			if (startIndex_equal == 0) {
-				// A A A A K Q J
-				for (int i = 0; i < MaxHandCardCount ; ++i)
-					pickedCardValue [i] = newSet [i];
-			} else {
-				// A 9 8 8 8 8 7
-				for ( int i = startIndex_equal , j = 0 ; i < MaxHandCardCount - 1 ; ++i , ++ j  )
-					pickedCardValue [j] = newSet [i];
-				// set max value card into fifth card
-				pickedCardValue [4] = newSet [0];
-			}
+		case E_CardCombinationType.FourOfaKind:				
+
+				pickedCardList.Add (newSet [fourOfaKindIndex]);
+				pickedCardList.Add (newSet [fourOfaKindIndex + 1]);
+				pickedCardList.Add (newSet [fourOfaKindIndex + 2 ]);
+				pickedCardList.Add (newSet [fourOfaKindIndex + 3 ]);
+
+				foreach (CCardData card in newSet)
+				if (card.Value != newSet [fourOfaKindIndex].Value)
+						valueSetQueue.Enqueue (card);
+
+				pickedCardList.Add (valueSetQueue.Dequeue ());
+
 			break;
 		case E_CardCombinationType.FullHouse:
-			if ( startIndex_equal == 0) {
-				for (int i = 0; i < pickedCardValue.Length; ++i)
-					pickedCardValue [i] = newSet [i];
-			} else {
-				// A KK Q JJJ
-				for (int i = startIndex_equal , j = 0 ; i < startIndex_equal + 3 ; ++i  , ++ j )
-					pickedCardValue [i] = newSet [i];
-				pickedCardValue [3] = newSet [ startIndex_pair1 ]  ;
-				pickedCardValue [4] = newSet [ startIndex_pair1 + 1 ] ;
-			}
+			
+			int threeOfaKindIndex = ThreeOfaKindIndexList [0];
+			int pairIndex = -1;
+
+			if (PairIndexList.Count > 0)
+				pairIndex = PairIndexList [0];
+			else
+				pairIndex = ThreeOfaKindIndexList [1];
+
+			pickedCardList.Add (newSet [threeOfaKindIndex]);
+			pickedCardList.Add (newSet [threeOfaKindIndex + 1]);
+			pickedCardList.Add (newSet [threeOfaKindIndex + 2]);
+			pickedCardList.Add (newSet [pairIndex]);
+			pickedCardList.Add (newSet [pairIndex + 1]);
+
 			break;
 		case E_CardCombinationType.Flush:
 			int pickedCardCount = 0;
@@ -406,14 +377,14 @@ public class CPlayer : MonoBehaviour {
 			}
 			break;
 		case E_CardCombinationType.ThreeOfAKind:
-			// A K Q J 9 9 9
-			// A K K K Q J 9
-			pickedCardList.Add (newSet [startIndex_equal]);
-			pickedCardList.Add (newSet [startIndex_equal + 1]);
-			pickedCardList.Add (newSet [startIndex_equal + 2 ]);
+			
+			int startIndex = ThreeOfaKindIndexList [ 0 ] ;
+			pickedCardList.Add (newSet [startIndex]);
+			pickedCardList.Add (newSet [startIndex + 1]);
+			pickedCardList.Add (newSet [startIndex + 2 ]);
 
 			foreach (CCardData card in newSet)
-				if (card.Value != newSet [startIndex_equal].Value)
+				if (card.Value != newSet [startIndex].Value)
 					valueSetQueue.Enqueue (card);
 
 			pickedCardList.Add (valueSetQueue.Dequeue ());
@@ -422,25 +393,30 @@ public class CPlayer : MonoBehaviour {
 			break;
 		case E_CardCombinationType.TwoPair:
 
-			pickedCardList.Add (newSet [startIndex_pair1]);
-			pickedCardList.Add (newSet [startIndex_pair1 + 1]);
-			pickedCardList.Add (newSet [startIndex_pair2]);
-			pickedCardList.Add (newSet [startIndex_pair2 + 1]);
+			pair1Index = PairIndexList [0];
+			pair2Index = PairIndexList [1];
+
+			pickedCardList.Add (newSet [pair1Index]);
+			pickedCardList.Add (newSet [pair1Index + 1]);
+			pickedCardList.Add (newSet [pair2Index]);
+			pickedCardList.Add (newSet [pair2Index + 1]);
 
 			foreach (CCardData card in newSet)
-				if (card.Value != newSet [startIndex_pair1].Value || card.Value != newSet [startIndex_pair2].Value)
-					valueSetQueue.Enqueue (card);
+				if (card.Value != newSet [pair1Index].Value && card.Value != newSet [pair2Index].Value)
+					valueSetQueue.Enqueue (card); 
 			
 			pickedCardList.Add (valueSetQueue.Dequeue ());
 
 			break;
 		case E_CardCombinationType.OnePair:
+			
+			pair1Index = PairIndexList [0];
 
-			pickedCardList.Add (newSet [startIndex_pair1]);
-			pickedCardList.Add (newSet [startIndex_pair1 + 1]);
+			pickedCardList.Add (newSet [pair1Index]);
+			pickedCardList.Add (newSet [pair1Index + 1]);
 
 			foreach (CCardData card in newSet)
-				if (card.Value != newSet [startIndex_pair1].Value)
+				if (card.Value != newSet [pair1Index].Value)
 					valueSetQueue.Enqueue (card);
 			
 			pickedCardList.Add (valueSetQueue.Dequeue ());
